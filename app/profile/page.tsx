@@ -1,0 +1,5 @@
+import { CustomerNav } from '../../components/customer-nav';
+
+export default function ProfilePage() {
+  return <main className="min-h-screen bg-slate-50 text-slate-900"><CustomerNav /><section className="container py-10"><div className="max-w-2xl"><p className="text-sm font-bold uppercase tracking-[0.2em] text-emerald-600">Customer profile</p><h1 className="mt-3 text-4xl font-black tracking-tight">Your account</h1><p className="mt-3 leading-7 text-slate-600">Guest booking is enabled. Your phone number is used to verify requests and connect future bookings.</p></div><div className="mt-8 rounded-3xl border border-slate-200 bg-white p-6 shadow-sm"><p className="font-bold text-slate-900">Phone verification</p><p className="mt-2 text-sm leading-6 text-slate-500">No password account is required to browse or request a service. We verify your phone with a one-time code at booking time.</p><a href="/services" className="mt-5 inline-flex rounded-xl bg-emerald-600 px-4 py-3 text-sm font-bold text-white">Find a service</a></div></section></main>;
+}

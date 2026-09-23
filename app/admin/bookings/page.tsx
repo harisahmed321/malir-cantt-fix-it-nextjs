@@ -1,0 +1,7 @@
+import { AdminModule } from '../admin-module';
+import { adminQuery } from '../../../lib/admin-data';
+
+export default async function AdminBookingsPage() {
+  const result = await adminQuery<{ reference: string; customer_name: string; customer_phone: string; service_required: string; preferred_date: string | null; status: string }>('bookings', 'reference,customer_name,customer_phone,service_required,preferred_date,status');
+  return <AdminModule eyebrow="Booking operations" title="Bookings" description="Monitor incoming requests, assignment, progress, completion, and cancellations." action="Export CSV" stats={[{ label: 'All bookings', value: String(result.data.length) }, { label: 'Pending requests', value: String(result.data.filter((booking) => booking.status === 'pending').length), tone: 'text-amber-600' }, { label: 'In progress', value: String(result.data.filter((booking) => booking.status === 'in_progress').length) }, { label: 'Completed', value: String(result.data.filter((booking) => booking.status === 'completed').length), tone: 'text-emerald-600' }]} columns={['Reference', 'Customer', 'Service', 'Date', 'Status']} rows={result.data.map((booking) => [booking.reference, `${booking.customer_name} · ${booking.customer_phone}`, booking.service_required, booking.preferred_date || 'Flexible', booking.status])} dataError={result.error} />;
+}
