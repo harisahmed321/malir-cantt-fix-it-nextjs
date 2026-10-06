@@ -11,7 +11,7 @@ const navigation = [
   ['Subscriptions', '/admin/subscriptions'],
   ['Feedback', '/admin/feedback'],
   ['Reports', '/admin/reports'],
-];
+] as const;
 
 export default async function AdminLayout({ children }: Readonly<{ children: React.ReactNode }>) {
   const hasAdminSession = Boolean((await cookies()).get('admin_access_token')?.value);

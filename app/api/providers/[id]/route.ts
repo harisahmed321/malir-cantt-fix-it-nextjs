@@ -10,7 +10,7 @@ export async function GET(_request: NextRequest, context: { params: Promise<{ id
   }
 
   const query = new URLSearchParams({
-    select: 'id,business_name,business_slug,provider_name,phone,email,description,experience_years,initial_price,currency,status,profile_image_url,service_radius_km,provider_services(service_name,service_description,starting_price,service_categories(name,slug)),provider_locations(address,area,city,latitude,longitude,is_primary),feedback(id,overall_rating,service_quality_rating,comment,created_at)',
+    select: 'id,business_name,business_slug,provider_name,phone,email,description,experience_years,initial_price,currency,status,profile_image_url,service_radius_km,provider_services(service_name,service_description,starting_price,service_categories(name,slug)),service_ads(id,title,description,base_price,currency,status,service_categories(name,slug)),provider_locations(address,area,city,latitude,longitude,is_primary),feedback(id,overall_rating,service_quality_rating,comment,created_at)',
     id: `eq.${id}`,
     status: 'eq.active',
     limit: '1',

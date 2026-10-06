@@ -19,6 +19,8 @@ npm run dev
 
 Create `.env.local` from `.env.example` and set `DATABASE_URL`. Keep database credentials server-side and never use `NEXT_PUBLIC_` for private values.
 
+Provider/customer persistence APIs also require `SUPABASE_SERVICE_ROLE_KEY` from Supabase **Project Settings → API Keys → service_role/secret key**. Store it only in `.env.local` and Vercel server environment variables. Never expose it with a `NEXT_PUBLIC_` prefix or commit its value.
+
 ## Admin login
 
 Open the admin portal at:
@@ -72,6 +74,7 @@ For the complete development marketplace data set, run `supabase/seed.sql` in th
 - `/admin/subscriptions` subscription and payment management
 - `/admin/feedback` feedback moderation
 - `/admin/reports` analytics and exports
+- `/provider` provider profile, ads, and subscription application portal
 - `/api/health` server-side database endpoint reachability check
 
 ## Architecture decisions

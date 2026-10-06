@@ -46,14 +46,28 @@ export async function GET(request: NextRequest) {
   if (category) query.set('provider_services.service_categories.slug', `eq.${category}`);
 
   try {
-    const response = await fetch(`${supabaseUrl.replace(/\/$/, '')}/rest/v1/service_providers?${query}`, {
-      headers: {
-        apikey: supabasePublishableKey,
-        Authorization: `Bearer ${supabasePublishableKey}`,
-        Prefer: 'count=exact',
-      },
-      next: { revalidate: 30 },
-    });
+    const [response, adsResponse] = await Promise.all([
+      fetch(`${supabaseUrl.replace(/\/$/, '')}/rest/v1/service_providers?${query}`, {
+        headers: {
+          apikey: supabasePublishableKey,
+          Authorization: `Bearer ${supabasePublishableKey}`,
+          Prefer: 'count=exact',
+        },
+        next: { revalidate: 30 },
+      }),
+      fetch(`${supabaseUrl.replace(/\/$/, '')}/rest/v1/service_ads?${new URLSearchParams({
+        select: 'id,title,description,base_price,currency,provider_id,category_id,service_categories(name,slug),service_providers!inner(id,business_name,business_slug,provider_name,description,initial_price,currency,status,profile_image_url,provider_locations(area,city,latitude,longitude),feedback(overall_rating))',
+        status: 'eq.active',
+        'service_providers.status': 'eq.active',
+        order: 'created_at.desc',
+        limit: String(pageSize),
+        offset: String(offset),
+        ...(category ? { 'service_categories.slug': `eq.${category}` } : {}),
+      })}`, {
+        headers: { apikey: supabasePublishableKey, Authorization: `Bearer ${supabasePublishableKey}` },
+        next: { revalidate: 30 },
+      }),
+    ]);
 
     if (!response.ok) {
       const error = response.status === 404
@@ -63,6 +77,7 @@ export async function GET(request: NextRequest) {
     }
 
     const providers = await response.json();
+    const ads = adsResponse.ok ? await adsResponse.json() : [];
     const normalizedProviders = providers.map((provider: { initial_price: number | null; provider_services?: { starting_price: number | null }[]; feedback?: { overall_rating: number }[] }) => {
       const prices = provider.provider_services?.map((service) => service.starting_price).filter((price): price is number => price != null) || [];
       const reviews = provider.feedback || [];
@@ -73,7 +88,34 @@ export async function GET(request: NextRequest) {
         review_count: reviews.length,
       };
     });
-    const filteredProviders = normalizedProviders.filter((provider: { average_rating: number | null; }) => {
+    const normalizedAds = ads.map((ad: { id: string; title: string; description: string; base_price: number; currency: string; provider_id: string; category_id: string; service_categories?: { name: string; slug: string }; service_providers: { id: string; business_name: string; business_slug: string; provider_name: string; description: string | null; initial_price: number | null; currency: string; status: string; profile_image_url: string | null; provider_locations?: { area: string; city: string; latitude: number; longitude: number }[]; feedback?: { overall_rating: number }[] } }) => {
+      const reviews = ad.service_providers.feedback || [];
+      return {
+        id: ad.provider_id,
+        service_ad_id: ad.id,
+        ad_title: ad.title,
+        business_name: ad.service_providers.business_name,
+        business_slug: ad.service_providers.business_slug,
+        provider_name: ad.service_providers.provider_name,
+        description: ad.description,
+        initial_price: ad.base_price,
+        base_price: ad.base_price,
+        currency: ad.currency,
+        status: ad.service_providers.status,
+        profile_image_url: ad.service_providers.profile_image_url,
+        provider_services: [{ service_name: ad.title, starting_price: ad.base_price, service_categories: ad.service_categories }],
+        provider_locations: ad.service_providers.provider_locations || [],
+        average_rating: reviews.length ? Number((reviews.reduce((sum, review) => sum + review.overall_rating, 0) / reviews.length).toFixed(1)) : null,
+        review_count: reviews.length,
+      };
+    });
+    const searchableProviders = search
+      ? normalizedProviders.filter((provider: { business_name: string; provider_name: string }) => `${provider.business_name} ${provider.provider_name}`.toLowerCase().includes(search.toLowerCase()))
+      : normalizedProviders;
+    const searchableAds = search
+      ? normalizedAds.filter((ad: { ad_title: string; business_name: string; provider_name: string }) => `${ad.ad_title} ${ad.business_name} ${ad.provider_name}`.toLowerCase().includes(search.toLowerCase()))
+      : normalizedAds;
+    const filteredProviders = [...searchableProviders, ...searchableAds].filter((provider: { average_rating: number | null }) => {
       if (Number.isFinite(minRating) && (provider.average_rating ?? 0) < minRating) return false;
       return true;
     });

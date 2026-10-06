@@ -29,16 +29,17 @@ begin
 	end if;
 end $$;
 
-insert into public.subscription_plans (name, duration_days, price, currency, max_categories, featured_listing)
+insert into public.subscription_plans (name, duration_days, price, currency, max_categories, featured_listing, max_ads)
 values
-	('Starter', 30, 2500, 'PKR', 2, false),
-	('Growth', 90, 6000, 'PKR', 4, false),
-	('Featured', 180, 10000, 'PKR', 8, true)
+	('Starter', 30, null, 'PKR', 2, false, 3),
+	('Growth', 60, null, 'PKR', 4, false, 10),
+	('Featured', 360, null, 'PKR', 8, true, 50)
 on conflict (name) do update set
 	duration_days = excluded.duration_days,
 	price = excluded.price,
 	max_categories = excluded.max_categories,
 	featured_listing = excluded.featured_listing,
+	max_ads = excluded.max_ads,
 	updated_at = now();
 
 insert into public.service_providers (

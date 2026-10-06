@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
+import { serviceRest } from '../../../lib/supabase-admin';
 
 type BookingRequest = {
   provider_id?: string;
@@ -33,6 +34,17 @@ export async function POST(request: NextRequest) {
   const verifiedPhone = (await cookies()).get('booking_phone_verified')?.value;
   if (!/^03\d{9}$/.test(String(body.customer_phone || '').trim())) return NextResponse.json({ error: 'Phone number must be exactly 11 digits and start with 03.' }, { status: 400 });
   if (!verifiedPhone || verifiedPhone !== body.customer_phone?.trim()) return NextResponse.json({ error: 'Verify the customer phone number with OTP before submitting the booking.' }, { status: 401 });
+
+  const profileQuery = new URLSearchParams({ on_conflict: 'phone' });
+  const profileSave = await serviceRest<unknown[]>('customer_profiles', profileQuery.toString(), {
+    method: 'POST',
+    headers: { Prefer: 'resolution=merge-duplicates,return=minimal' },
+    body: JSON.stringify({ phone: verifiedPhone, full_name: body.customer_name?.trim(), address: body.service_address?.trim(), updated_at: new Date().toISOString() }),
+  });
+  if (!profileSave.response.ok) {
+    const profileError = profileSave.data as { message?: string } | null;
+    return NextResponse.json({ error: profileError?.message || 'Could not save customer profile.' }, { status: profileSave.response.status });
+  }
 
   const response = await fetch(`${supabaseUrl.replace(/\/$/, '')}/rest/v1/bookings?select=reference,status,created_at`, {
     method: 'POST',
