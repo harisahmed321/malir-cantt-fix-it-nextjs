@@ -16,11 +16,6 @@ type BookingRequest = {
 };
 
 export async function POST(request: NextRequest) {
-  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const supabasePublishableKey = process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
-
-  if (!supabaseUrl || !supabasePublishableKey) return NextResponse.json({ error: 'Booking service is not configured.' }, { status: 503 });
-
   let body: BookingRequest;
   try {
     body = (await request.json()) as BookingRequest;
@@ -35,6 +30,10 @@ export async function POST(request: NextRequest) {
   if (!/^03\d{9}$/.test(String(body.customer_phone || '').trim())) return NextResponse.json({ error: 'Phone number must be exactly 11 digits and start with 03.' }, { status: 400 });
   if (!verifiedPhone || verifiedPhone !== body.customer_phone?.trim()) return NextResponse.json({ error: 'Verify the customer phone number with OTP before submitting the booking.' }, { status: 401 });
 
+  const providerQuery = new URLSearchParams({ select: 'id', id: `eq.${body.provider_id}`, status: 'eq.active', limit: '1' });
+  const providerResult = await serviceRest<{ id: string }[]>('service_providers', providerQuery.toString());
+  if (!providerResult.response.ok || !providerResult.data?.length) return NextResponse.json({ error: 'This provider is not currently accepting booking requests.' }, { status: 404 });
+
   const profileQuery = new URLSearchParams({ on_conflict: 'phone' });
   const profileSave = await serviceRest<unknown[]>('customer_profiles', profileQuery.toString(), {
     method: 'POST',
@@ -46,15 +45,12 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: profileError?.message || 'Could not save customer profile.' }, { status: profileSave.response.status });
   }
 
-  const response = await fetch(`${supabaseUrl.replace(/\/$/, '')}/rest/v1/bookings?select=reference,status,created_at`, {
+  const bookingQuery = new URLSearchParams({ select: 'reference,status,created_at' });
+  const { response, data } = await serviceRest<{ reference: string; status: string; created_at: string }[]>('bookings', bookingQuery.toString(), {
     method: 'POST',
-    headers: {
-      apikey: supabasePublishableKey,
-      Authorization: `Bearer ${supabasePublishableKey}`,
-      'Content-Type': 'application/json',
-      Prefer: 'return=representation',
-    },
+    headers: { Prefer: 'return=representation' },
     body: JSON.stringify({
+      customer_id: null,
       provider_id: body.provider_id,
       customer_name: body.customer_name?.trim(),
       customer_phone: body.customer_phone?.trim(),
@@ -69,10 +65,10 @@ export async function POST(request: NextRequest) {
   });
 
   if (!response.ok) {
-    const databaseError = await response.json().catch(() => null) as { message?: string; details?: string; hint?: string } | null;
+    const databaseError = data as { message?: string; details?: string; hint?: string } | null;
     const message = databaseError?.message || databaseError?.details || 'Booking could not be submitted. Please try again.';
     return NextResponse.json({ error: message, hint: databaseError?.hint }, { status: response.status });
   }
-  const [booking] = await response.json();
+  const booking = data?.[0];
   return NextResponse.json({ data: booking }, { status: 201 });
 }
